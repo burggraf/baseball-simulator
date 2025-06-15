@@ -26,16 +26,9 @@
       console.warn('SQLite pre-check failed, will proceed with import', e);
     }
     try {
-      status = 'Loading DuckDB WASM…';
-      const duckdb = await import('@duckdb/duckdb-wasm');
-      const LOCAL_BUNDLE = {
-        mainModule: `${location.origin}/duckdb/duckdb-mvp.wasm`,
-        mainWorker: '/duckdb/duckdb-browser-mvp.worker.js',
-        pthreadWorker: undefined
-      };
-      const worker = await duckdb.createWorker(LOCAL_BUNDLE.mainWorker);
-      const db = new duckdb.AsyncDuckDB(new duckdb.ConsoleLogger(), worker);
-      await db.instantiate(LOCAL_BUNDLE.mainModule, LOCAL_BUNDLE.pthreadWorker ?? null);
+      status = 'Loading DuckDB…';
+      const { getDuckDB } = await import('@/db/duckdb');
+      const db = await getDuckDB();
 
       // Fetch parquet files manually to bypass CORS and register buffers
       status = 'Fetching Parquet files…';
@@ -71,11 +64,8 @@
       // Persist rows using sqlite-wasm (OPFS/IndexedDB backed)
       status = 'Persisting to SQLite…';
       // Persist rows using sqlite-wasm IDB/OPFS storage
-      const { initSQLite } = await import('@subframe7536/sqlite-wasm');
-      const { useIdbMemoryStorage } = await import('@subframe7536/sqlite-wasm/idb-memory');
-      const wasmUrl = '/wasm/wa-sqlite-async.wasm';
-      const sqliteApi = await initSQLite(useIdbMemoryStorage('bbsim.db', { url: wasmUrl }));
-      const { run, close } = sqliteApi;
+      const { getSQLite } = await import('@/db/sqlite');
+      const { run, close } = await getSQLite();
 
       // Dynamically create table schema if it doesn't exist
       const cols = Object.keys(rows[0]);
@@ -84,7 +74,7 @@
       await run('BEGIN');
       for (const row of rows) {
         const placeholders = cols.map(() => '?').join(',');
-        await run(`INSERT OR IGNORE INTO people VALUES (${placeholders});`, cols.map((c) => row[c]));
+        await run(`INSERT OR IGNORE INTO people VALUES (${placeholders});`, cols.map((c: string) => row[c]));
       }
       await run('COMMIT');
       await close();
