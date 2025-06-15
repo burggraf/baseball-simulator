@@ -28,11 +28,14 @@
     try {
       status = 'Loading DuckDB WASM…';
       const duckdb = await import('@duckdb/duckdb-wasm');
-      const bundles = duckdb.getJsDelivrBundles();
-      const bundle = await duckdb.selectBundle(bundles);
-      const worker = await duckdb.createWorker(bundle.mainWorker);
+      const LOCAL_BUNDLE = {
+        mainModule: `${location.origin}/duckdb/duckdb-mvp.wasm`,
+        mainWorker: '/duckdb/duckdb-browser-mvp.worker.js',
+        pthreadWorker: undefined
+      };
+      const worker = await duckdb.createWorker(LOCAL_BUNDLE.mainWorker);
       const db = new duckdb.AsyncDuckDB(new duckdb.ConsoleLogger(), worker);
-      await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+      await db.instantiate(LOCAL_BUNDLE.mainModule, LOCAL_BUNDLE.pthreadWorker ?? null);
 
       // Fetch parquet files manually to bypass CORS and register buffers
       status = 'Fetching Parquet files…';
