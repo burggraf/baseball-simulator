@@ -8,9 +8,19 @@
 
 
   onMount(async () => {
+    // Skip in server-side rendering environment
+    if (import.meta.env.SSR) return;
     try {
-      const { getDuckDB } = await import('@/db/duckdb');
-      const db = await getDuckDB();
+      const duckdb = await import('@duckdb/duckdb-wasm');
+      const LOCAL_BUNDLE = {
+        mainModule: '/duckdb/duckdb-mvp.wasm',
+        mainWorker: '/duckdb/duckdb-browser-mvp.worker.js',
+        pthreadWorker: undefined
+      };
+      const worker = await duckdb.createWorker(LOCAL_BUNDLE.mainWorker);
+      const logger = new duckdb.ConsoleLogger();
+      const db = new duckdb.AsyncDuckDB(logger, worker);
+      await db.instantiate(LOCAL_BUNDLE.mainModule, LOCAL_BUNDLE.pthreadWorker ?? null);
 
       const conn = await db.connect();
       const parquetUrl = 'https://data.baseball.computer/dbt/main_models_metrics_player_season_league_offense.parquet';
